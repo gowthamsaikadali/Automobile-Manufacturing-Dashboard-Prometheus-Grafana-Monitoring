@@ -11,43 +11,41 @@ variable "account_id" {}
 variable "github_org" {}
 variable "github_repo" { default = "Automobile-Manufacturing-Dashboard-Prometheus-Grafana-Monitoring" }
 variable "db_password" { sensitive = true }
-variable "alarm_email" {}
 
 provider "aws" {
   region = var.region
 }
 
 # ---------------------------------------------------------------------------
-# NETWORK
+# This root module provisions everything that does NOT depend on the ALB
+# existing: network, EKS, ECR, RDS, and IAM roles (GitHub OIDC + External
+# Secrets IRSA). A plain `terraform apply` here is always safe to run -
+# there is nothing in this state file that looks up the ALB.
+#
+# WAFv2 and CloudWatch alarms (which DO need the ALB to exist first) live in
+# a separate root module: ../dev-phase2. Run that one AFTER you've deployed
+# the app with Helm and the ALB has actually been created. See README.md.
 # ---------------------------------------------------------------------------
+
 module "vpc" {
   source       = "../../modules/vpc"
   name         = "autoforge"
   cluster_name = "autoforge-eks"
 }
 
-# ---------------------------------------------------------------------------
-# EKS
-# ---------------------------------------------------------------------------
 module "eks" {
-  source              = "../../modules/eks"
-  vpc_id              = module.vpc.vpc_id
-  public_subnet_ids   = module.vpc.public_subnet_ids
-  private_subnet_ids  = module.vpc.private_subnet_ids
-  node_instance_type  = "t3.small"
+  source             = "../../modules/eks"
+  vpc_id             = module.vpc.vpc_id
+  public_subnet_ids  = module.vpc.public_subnet_ids
+  private_subnet_ids = module.vpc.private_subnet_ids
+  node_instance_type = "t3.small"
 }
 
-# ---------------------------------------------------------------------------
-# ECR
-# ---------------------------------------------------------------------------
 module "ecr" {
   source    = "../../modules/ecr"
   repo_name = "autoforge-app"
 }
 
-# ---------------------------------------------------------------------------
-# RDS (allow access from EKS cluster security group only)
-# ---------------------------------------------------------------------------
 module "rds" {
   source         = "../../modules/rds"
   identifier     = "autoforge-mysql"
@@ -57,9 +55,6 @@ module "rds" {
   db_password    = var.db_password
 }
 
-# ---------------------------------------------------------------------------
-# IAM (GitHub OIDC deploy role + External Secrets IRSA)
-# ---------------------------------------------------------------------------
 module "iam" {
   source                     = "../../modules/iam"
   github_org                 = var.github_org
@@ -72,37 +67,9 @@ module "iam" {
   secrets_manager_arn_prefix = "arn:aws:secretsmanager:${var.region}:${var.account_id}:secret:autoforge/"
 }
 
-# ---------------------------------------------------------------------------
-# WAFv2 (protects the ALB). NOTE: the ALB only exists once the Helm chart's
-# ingress has been applied to the cluster and the AWS Load Balancer
-# Controller has provisioned it. This is a two-phase apply:
-#   Phase 1: terraform apply -target=module.vpc -target=module.eks \
-#            -target=module.ecr -target=module.rds -target=module.iam
-#            -> then install ALB controller + helm install the app
-#   Phase 2: terraform apply
-#            -> now module.waf's data source finds the ALB and finishes
-#               the WAF association + CloudWatch alarms
-# ---------------------------------------------------------------------------
-module "waf" {
-  source   = "../../modules/waf"
-  alb_name = "autoforge-alb"
-}
-
-# ---------------------------------------------------------------------------
-# MONITORING (CloudWatch alarms + SNS)
-# ---------------------------------------------------------------------------
-module "monitoring" {
-  source           = "../../modules/monitoring"
-  alarm_email      = var.alarm_email
-  rds_instance_id  = "autoforge-mysql"
-  alb_arn_suffix   = module.waf.alb_arn_suffix
-  eks_cluster_name = module.eks.cluster_name
-}
-
+output "vpc_id" { value = module.vpc.vpc_id }
 output "eks_cluster_name" { value = module.eks.cluster_name }
 output "ecr_repository_url" { value = module.ecr.repository_url }
 output "rds_endpoint" { value = module.rds.endpoint }
 output "github_deploy_role_arn" { value = module.iam.github_deploy_role_arn }
 output "external_secrets_role_arn" { value = module.iam.external_secrets_role_arn }
-output "sns_topic_arn" { value = module.monitoring.sns_topic_arn }
-output "alb_dns_name" { value = module.waf.alb_dns_name }

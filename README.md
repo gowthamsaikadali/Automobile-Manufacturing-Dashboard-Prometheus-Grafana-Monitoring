@@ -74,25 +74,25 @@ copy terraform.tfvars.example terraform.tfvars
 notepad terraform.tfvars
 ```
 
-Fill in: your AWS account ID, a strong `db_password`, and your real email
-for `alarm_email` (you'll get an SNS confirmation email you must click).
+Fill in: your AWS account ID, and a strong `db_password`.
 **Never commit this file** — it's already gitignored.
 
 ---
 
-## 4. Phase 1 apply — network, EKS, RDS, ECR, IAM
+## 4. Apply Terraform — network, EKS, RDS, ECR, IAM
+
+This root module (`terraform/environments/dev`) only contains infrastructure
+that does **not** depend on the ALB existing yet, so a plain `terraform
+apply` is always safe here — no `-target` flags needed, and nothing here
+will ever try to look up a load balancer that doesn't exist yet.
 
 ```powershell
 terraform init
-terraform apply `
-  -target=module.vpc `
-  -target=module.eks `
-  -target=module.ecr `
-  -target=module.rds `
-  -target=module.iam
+terraform apply
 ```
 
-This takes ~15 minutes (EKS control plane is the slow part). When done:
+Type `yes` when prompted. This takes ~15 minutes (the EKS control plane is
+the slow part). When done:
 
 ```powershell
 terraform output
@@ -100,6 +100,13 @@ terraform output
 
 Note down `eks_cluster_name`, `ecr_repository_url`, `rds_endpoint`,
 `github_deploy_role_arn`, `external_secrets_role_arn`.
+
+> **A note on copy-pasting commands from a chat window into PowerShell:**
+> long commands can sometimes pick up a stray space or line break from how
+> the browser wraps text, which breaks flags like `-target=module.vpc` in
+> hard-to-spot ways. If a command errors in a way that doesn't make sense
+> for what you typed, try typing it manually instead of pasting, or save it
+> to a `.ps1` file and run that.
 
 ---
 
@@ -237,17 +244,32 @@ Login screen. Sign in with the admin username/password you seeded.
 
 ## 11. Phase 2 Terraform apply — WAFv2 + CloudWatch alarms
 
-Now that the ALB exists (named `autoforge-alb` per the ingress annotation),
-finish the rest of the infra:
+This lives in a **separate Terraform root** (`terraform/environments/dev-phase2`)
+with its own state file, specifically so it's impossible to accidentally run
+it before the ALB exists. Only do this step once `kubectl get ingress` (end
+of Step 10) actually shows a hostname.
 
 ```powershell
-cd ..\..\terraform\environments\dev
+cd ..\..\dev-phase2
+copy terraform.tfvars.example terraform.tfvars
+notepad terraform.tfvars
+```
+
+Fill in your real email for `alarm_email` (you'll get an SNS confirmation
+email you must click) and the same `phase1_state_bucket` name you used in
+Step 2. Then edit `backend.tf` in this same folder and replace the bucket
+placeholder, same as you did in Step 2.
+
+```powershell
+terraform init
 terraform apply
 ```
 
-This attaches the WAFv2 WebACL to your ALB and wires up CloudWatch alarms
-for RDS CPU/storage/connections and ALB 5xx/latency. Check your email and
-confirm the SNS subscription so alarm emails actually arrive.
+This looks up your ALB by name (`autoforge-alb`), attaches the WAFv2 WebACL
+to it, and wires up CloudWatch alarms for RDS CPU/storage/connections and
+ALB 5xx/latency — pulling the EKS cluster name automatically from phase 1's
+state file, so there's nothing to copy/paste by hand. Confirm the SNS
+subscription email so alarm notifications actually arrive.
 
 ---
 
@@ -332,16 +354,20 @@ kubectl scale deployment autoforge-app -n autoforge --replicas=2
 ## Repo layout
 
 ```
-app/                  Flask app, templates, static CSS, Dockerfile, seed.py
+app/                       Flask app, templates, static CSS, Dockerfile, seed.py
 terraform/
-  bootstrap/          S3 + DynamoDB remote state (run once)
-  modules/            vpc, eks, rds, ecr, iam, waf, monitoring
-  environments/dev/   wires all modules together for this environment
-helm/autoforge/       Helm chart: Deployment, Service, Ingress(ALB), HPA,
-                       ServiceAccount, ExternalSecret/SecretStore
-monitoring/           kube-prometheus-stack values, Loki values,
-                       ServiceMonitor + PrometheusRule, Grafana dashboard JSON
-.github/workflows/     CI/CD: SonarQube -> Trivy -> ECR push -> Helm deploy
+  bootstrap/                S3 + DynamoDB remote state (run once)
+  modules/                  vpc, eks, rds, ecr, iam, waf, monitoring
+  environments/dev/         Phase 1: vpc, eks, ecr, rds, iam - no ALB dependency,
+                             always safe to `terraform apply` directly
+  environments/dev-phase2/  Phase 2: waf, monitoring - separate state file,
+                             reads phase 1's outputs via terraform_remote_state.
+                             Only apply this AFTER the ALB exists.
+helm/autoforge/            Helm chart: Deployment, Service, Ingress(ALB), HPA,
+                             ServiceAccount, ExternalSecret/SecretStore
+monitoring/                 kube-prometheus-stack values, Loki values,
+                             ServiceMonitor + PrometheusRule, Grafana dashboard JSON
+.github/workflows/          CI/CD: SonarQube -> Trivy -> ECR push -> Helm deploy
 ```
 
 ## Cost notes
