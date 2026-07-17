@@ -152,71 +152,78 @@ helm install external-secrets external-secrets/external-secrets `
 
 ## 7. Create the secret in AWS Secrets Manager (read by External Secrets Operator)
 
-```powershell
-aws secretsmanager create-secret `
-  --name autoforge/db-credentials `
-  --secret-string '{\"password\":\"<same db_password from tfvars>\",\"flask_secret_key\":\"<generate a random 32+ char string>\",\"admin_password\":\"<password you want for the admin login>\"}' `
-  --region ap-south-1
-```
-
-Generate a random Flask secret key quickly:
+First generate a random Flask secret key:
 
 ```powershell
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
----
-
-## 8. Seed the database (schema + admin user)
-
-Run this from your machine — it needs network access to the RDS endpoint,
-so run it from a machine/bastion inside the VPC, or temporarily allow your
-IP in the RDS security group, or run it as a one-off Kubernetes Job using
-the same image. Simplest for a fresh setup: run it as a K8s Job.
+Copy that output, then run (in PowerShell, single-quoted strings don't need
+the inner double quotes escaped — no backslashes):
 
 ```powershell
-kubectl create namespace autoforge
-
-kubectl run autoforge-seed --rm -i --restart=Never `
-  --image=python:3.12-slim -n autoforge -- bash -c "
-    pip install pymysql bcrypt --quiet &&
-    python -c \"
-import os
-DB_HOST='<rds_endpoint from terraform output>'
-\" "
+aws secretsmanager create-secret `
+  --name autoforge/db-credentials `
+  --secret-string '{"password":"<same db_password from tfvars>","flask_secret_key":"<paste the generated key>","admin_password":"<password you want for the dashboard login>"}' `
+  --region ap-south-1
 ```
 
-Easier in practice: copy `app/seed.py` and `app/requirements.txt` into the
-cluster via a quick Job, or just run `seed.py` locally with these env vars
-set (works if your IP is temporarily allowed into the RDS security group):
+Verify it saved correctly (should print the same JSON back, no stray `\`):
 
 ```powershell
-$env:DB_HOST="<rds_endpoint>"
-$env:DB_USER="autoforge_admin"
-$env:DB_PASSWORD="<db_password>"
-$env:DB_NAME="autoforge"
-$env:ADMIN_USERNAME="admin"
-$env:ADMIN_PASSWORD="<admin_password you used in secrets manager>"
+aws secretsmanager get-secret-value --secret-id autoforge/db-credentials --region ap-south-1 --query SecretString --output text
+```
+
+---
+
+## 8. Build and push the first image manually (before CI/CD exists yet)
+
+```powershell
 cd ..\..\..\app
-pip install -r requirements.txt --quiet
-python seed.py
-```
-
----
-
-## 9. Build and push the first image manually (before CI/CD exists yet)
-
-```powershell
-cd ..\app
 aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <ecr_repository_url minus the repo name>
 docker build -t autoforge-app .
 docker tag autoforge-app:latest <ecr_repository_url>:latest
 docker push <ecr_repository_url>:latest
 ```
 
+`<ecr_repository_url minus the repo name>` means just the registry host —
+e.g. if `ecr_repository_url` is `762131619075.dkr.ecr.ap-south-1.amazonaws.com/autoforge-app`,
+use `762131619075.dkr.ecr.ap-south-1.amazonaws.com` for the login command.
+
 ---
 
-## 10. Deploy the app with Helm (Phase 1 — before WAF/monitoring wiring)
+## 9. Seed the database (schema + admin user)
+
+RDS sits in a private subnet and its security group only allows traffic
+from the EKS cluster — **not from your laptop**, no matter what you allow
+manually. So this has to run as a pod inside the cluster, using the image
+you just pushed in Step 8 (it already has `seed.py`, `pymysql`, and
+`bcrypt` baked in).
+
+```powershell
+kubectl create namespace autoforge
+
+kubectl run autoforge-seed `
+  --rm -i --restart=Never `
+  --image=<ecr_repository_url>:latest `
+  -n autoforge `
+  --env="DB_HOST=<rds_endpoint from terraform output>" `
+  --env="DB_USER=autoforge_admin" `
+  --env="DB_PASSWORD=<db_password from tfvars>" `
+  --env="DB_NAME=autoforge" `
+  --env="ADMIN_USERNAME=admin" `
+  --env="ADMIN_PASSWORD=<the admin_password you set in Step 7's secret>" `
+  --command -- python seed.py
+```
+
+You should see: `Seed complete. Admin user 'admin' is ready.` If the pod
+hangs or errors on connection, double check `DB_HOST` matches
+`terraform output` exactly and that the EKS node group finished creating
+before RDS was ready (rare timing issue — just re-run if so).
+
+---
+
+## 10. Deploy the app with Helm
 
 ```powershell
 cd ..\helm\autoforge
