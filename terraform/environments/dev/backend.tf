@@ -2,7 +2,7 @@
 # then run: terraform init
 terraform {
   backend "s3" {
-    bucket         = "REPLACE-WITH-YOUR-STATE-BUCKET-NAME"
+    bucket         = "autoforge-tfstate-gowtham-2026"
     key            = "autoforge/dev/terraform.tfstate"
     region         = "ap-south-1"
     dynamodb_table = "autoforge-terraform-locks"

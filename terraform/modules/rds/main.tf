@@ -50,7 +50,7 @@ resource "aws_db_instance" "this" {
   multi_az               = var.multi_az
   publicly_accessible     = false
   skip_final_snapshot    = true
-  backup_retention_period = 3
+  backup_retention_period = 0
 
   # Ships slow query / error / general logs to CloudWatch Logs for the
   # monitoring stack to pick up
