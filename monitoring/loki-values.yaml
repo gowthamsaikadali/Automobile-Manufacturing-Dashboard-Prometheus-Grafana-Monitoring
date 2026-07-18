@@ -1,19 +1,22 @@
 # Install with:
-#   helm repo add grafana https://grafana.github.io/helm-charts
-#   helm install loki grafana/loki-stack -n monitoring -f monitoring/loki-values.yaml
-#
-# This gives you centralized logs for every pod (app + system) queryable
-# from Grafana via the Loki datasource (auto-added by loki-stack), so you can
-# correlate a Prometheus alert with the exact log lines from that pod.
+# helm repo add grafana https://grafana.github.io/helm-charts
+# helm upgrade --install loki grafana/loki-stack \
+#   -n monitoring \
+#   -f monitoring/loki-values.yaml
 
 loki:
   enabled: true
+
   persistence:
     enabled: true
+    storageClassName: gp2    # <-- ADD THIS
+    accessModes:
+      - ReadWriteOnce
     size: 10Gi
+
   config:
     limits_config:
-      retention_period: 336h # 14 days
+      retention_period: 336h
 
 promtail:
   enabled: true
@@ -29,7 +32,4 @@ promtail:
             level:
 
 grafana:
-  enabled: false  # we already have Grafana from kube-prometheus-stack
-
-# Add Loki as a datasource in the existing Grafana (kube-prometheus-stack)
-# by pointing it at: http://loki.monitoring.svc.cluster.local:3100
+  enabled: false

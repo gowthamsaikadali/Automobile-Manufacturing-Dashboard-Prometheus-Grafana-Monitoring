@@ -73,3 +73,4 @@ output "ecr_repository_url" { value = module.ecr.repository_url }
 output "rds_endpoint" { value = module.rds.endpoint }
 output "github_deploy_role_arn" { value = module.iam.github_deploy_role_arn }
 output "external_secrets_role_arn" { value = module.iam.external_secrets_role_arn }
+output "alb_controller_role_arn" {value = module.iam.alb_controller_role_arn}
