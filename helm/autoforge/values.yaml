@@ -52,7 +52,7 @@ externalSecrets:
   enabled: true
   secretsManagerKey: autoforge/db-credentials
   refreshInterval: 1h
-  serviceAccountName: external-secrets-sa
+  serviceAccountName: external-secrets
   irsaRoleArn: REPLACE_WITH_EXTERNAL_SECRETS_ROLE_ARN
 
 serviceAccount:

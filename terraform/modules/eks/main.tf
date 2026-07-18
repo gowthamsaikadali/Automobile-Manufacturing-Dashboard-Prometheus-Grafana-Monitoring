@@ -187,30 +187,12 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 }
 
 ###########################################################
-# NEW - Install EBS CSI Driver
-###########################################################
-
-resource "aws_eks_addon" "ebs_csi" {
-
-  cluster_name = aws_eks_cluster.this.name
-
-  addon_name = "aws-ebs-csi-driver"
-
-  service_account_role_arn = aws_iam_role.ebs_csi.arn
-
-  depends_on = [
-    aws_iam_role_policy_attachment.ebs_csi
-  ]
-}
-
-###########################################################
 # Node Group
 ###########################################################
 
 resource "aws_eks_node_group" "default" {
 
-  cluster_name = aws_eks_cluster.this.name
-
+  cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-ng"
 
   node_role_arn = aws_iam_role.node.arn
@@ -222,7 +204,6 @@ resource "aws_eks_node_group" "default" {
   ]
 
   scaling_config {
-
     desired_size = var.node_desired_size
     min_size     = var.node_min_size
     max_size     = var.node_max_size
@@ -232,7 +213,27 @@ resource "aws_eks_node_group" "default" {
     aws_iam_role_policy_attachment.node_worker,
     aws_iam_role_policy_attachment.node_cni,
     aws_iam_role_policy_attachment.node_ecr,
-    aws_eks_addon.ebs_csi
+    aws_iam_role_policy_attachment.node_ssm,
+    aws_iam_role_policy_attachment.node_ebs_csi
+  ]
+}
+
+###########################################################
+# Install EBS CSI Driver
+###########################################################
+
+resource "aws_eks_addon" "ebs_csi" {
+
+  cluster_name             = aws_eks_cluster.this.name
+  addon_name               = "aws-ebs-csi-driver"
+  service_account_role_arn = aws_iam_role.ebs_csi.arn
+
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_iam_role_policy_attachment.ebs_csi,
+    aws_eks_node_group.default
   ]
 }
 
