@@ -1,7 +1,0 @@
-aws_region   = "ap-south-1"
-project_name = "automobile-project"
-environment  = "dev"
-
-# Don't put the real password here if this file is committed to git.
-# Prefer: terraform apply -var="db_password=..." or TF_VAR_db_password env var.
-db_password = "CHANGE_ME_STRONG_PASSWORD"
