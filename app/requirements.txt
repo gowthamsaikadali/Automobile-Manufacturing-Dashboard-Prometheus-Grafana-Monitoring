@@ -1,6 +1,0 @@
-Flask==3.0.3
-PyMySQL==1.1.1
-bcrypt==4.2.0
-gunicorn==22.0.0
-cryptography==43.0.0
-prometheus-flask-exporter==0.23.1
