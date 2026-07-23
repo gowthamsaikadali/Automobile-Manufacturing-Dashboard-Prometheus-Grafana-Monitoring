@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{% block title %}Dashboard{% endblock %} | Automobile Manufacturing Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="logo-circle small">AM</div>
+        <div>
+          <div class="brand-title">Auto Unit</div>
+          <div class="brand-subtitle">Manufacturing Control</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active=='Dashboard' else '' }}">Dashboard</a>
+        <a href="{{ url_for('materials') }}" class="{{ 'active' if active=='Materials' else '' }}">Materials</a>
+        <a href="#" class="{{ 'active' if active=='Add Material' else '' }}">Add Material</a>
+        <a href="{{ url_for('production_tracking') }}" class="{{ 'active' if active=='Production Tracking' else '' }}">Production Tracking</a>
+        <a href="{{ url_for('inventory') }}" class="{{ 'active' if active=='Inventory' else '' }}">Inventory</a>
+        <a href="{{ url_for('reports') }}" class="{{ 'active' if active=='Reports' else '' }}">Reports</a>
+        <a href="{{ url_for('profile') }}" class="{{ 'active' if active=='Profile' else '' }}">Profile</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="signed-in-label">Signed in as</div>
+        <div class="signed-in-user">{{ user }}</div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="main-header">
+        <div>
+          <h1>{% block heading %}Dashboard{% endblock %}</h1>
+          <p class="page-subtitle">{% block subheading %}Automobile Manufacturing Unit Dashboard{% endblock %}</p>
+        </div>
+        <div class="header-right">
+          <div class="header-user">{{ user }}</div>
+          <div class="header-year">{{ year }}</div>
+        </div>
+      </div>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Install with:
+# helm repo add grafana https://grafana.github.io/helm-charts
+# helm upgrade --install loki grafana/loki-stack \
+#   -n monitoring \
+#   -f monitoring/loki-values.yaml
+
+loki:
+  enabled: true
+
+  persistence:
+    enabled: true
+    storageClassName: gp2    # <-- ADD THIS
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+
+  config:
+    limits_config:
+      retention_period: 336h
+
+promtail:
+  enabled: true
+  config:
+    snippets:
+      pipelineStages:
+        - cri: {}
+        - json:
+            expressions:
+              level: level
+              msg: msg
+        - labels:
+            level:
+
+grafana:
+  enabled: false

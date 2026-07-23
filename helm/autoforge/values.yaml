@@ -1,0 +1,60 @@
+namespace: autoforge
+
+image:
+  repository: REPLACE_WITH_ECR_URL   # e.g. 762131619075.dkr.ecr.ap-south-1.amazonaws.com/autoforge-app
+  tag: latest
+  pullPolicy: Always
+
+replicaCount: 2
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+service:
+  port: 80
+  targetPort: 5000
+
+# ALB via AWS Load Balancer Controller - internet-facing, no domain name needed.
+# You'll access the app via the ALB's auto-generated DNS name.
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    # Fixed name so Terraform can look this ALB up by name (WAFv2 association,
+    # CloudWatch alarms) instead of you having to copy/paste an ARN by hand.
+    alb.ingress.kubernetes.io/load-balancer-name: autoforge-alb
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+# Database connection details - non-secret values only. The password comes
+# from External Secrets Operator -> Kubernetes Secret "autoforge-db-secret".
+db:
+  host: REPLACE_WITH_RDS_ENDPOINT
+  port: "3306"
+  name: autoforge
+  user: autoforge_admin
+
+externalSecrets:
+  enabled: true
+  secretsManagerKey: autoforge/db-credentials
+  refreshInterval: 1h
+  serviceAccountName: external-secrets
+  irsaRoleArn: REPLACE_WITH_EXTERNAL_SECRETS_ROLE_ARN
+
+serviceAccount:
+  create: true
+  name: autoforge-app-sa
