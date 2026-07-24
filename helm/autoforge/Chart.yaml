@@ -1,6 +1,0 @@
-apiVersion: v2
-name: autoforge
-description: Automobile Manufacturing Dashboard (Flask + MySQL RDS) on EKS
-type: application
-version: 0.1.0
-appVersion: "1.0.0"

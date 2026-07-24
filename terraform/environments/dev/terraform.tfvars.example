@@ -1,8 +1,0 @@
-# Copy this file to terraform.tfvars and fill in your real values.
-# NEVER commit terraform.tfvars (it's already in .gitignore).
-
-region      = "ap-south-1"
-account_id  = "762131619075"
-github_org  = "gowthamsaikadali"
-github_repo = "Automobile-Manufacturing-Dashboard-Prometheus-Grafana-Monitoring"
-db_password = "ChangeThisStrongPassword!23"
