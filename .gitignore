@@ -1,0 +1,74 @@
+# ============================================================
+# Terraform
+# ============================================================
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfvars
+!terraform.tfvars.example
+.terraformrc
+terraform.rc
+
+# ============================================================
+# Secrets - never commit real credentials
+# ============================================================
+k8s/service.yaml.local
+**/*secret*.yaml
+!k8s/service.yaml
+.env
+.env.*
+*.pem
+*.key
+kubeconfig
+kubeconfig.yaml
+
+# ============================================================
+# Python / Flask (app/)
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+instance/
+.flask_session/
+
+# ============================================================
+# Docker
+# ============================================================
+*.log
+
+# ============================================================
+# Kubernetes / Helm
+# ============================================================
+*.kubeconfig
+.kube/
+
+# ============================================================
+# OS / Editor cruft
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============================================================
+# PowerShell
+# ============================================================
+*.ps1.bak
