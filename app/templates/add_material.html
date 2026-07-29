@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Add Material{% endblock %}
+{% block content %}
+<div class="main-header">
+    <div>
+        <h1>Add Material</h1>
+        <p>Register a new material into the production catalog</p>
+    </div>
+</div>
+
+<div class="panel" style="max-width:480px;">
+    <form method="POST" action="{{ url_for('add_material') }}">
+        <div class="form-row">
+            <label for="name">Material Name</label>
+            <input type="text" id="name" name="name" placeholder="e.g. Steel Chassis Frame" required>
+        </div>
+        <div class="form-row">
+            <label for="material_type">Material Type</label>
+            <select id="material_type" name="material_type" required>
+                <option value="">Select type</option>
+                <option>Chassis</option>
+                <option>Engine Component</option>
+                <option>Electrical</option>
+                <option>Interior</option>
+                <option>Exterior</option>
+                <option>Tyres & Wheels</option>
+                <option>Other</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="produced">Initial Produced Quantity</label>
+            <input type="number" id="produced" name="produced" value="0" min="0">
+        </div>
+        <button type="submit" class="btn">Save Material</button>
+    </form>
+</div>
+{% endblock %}
