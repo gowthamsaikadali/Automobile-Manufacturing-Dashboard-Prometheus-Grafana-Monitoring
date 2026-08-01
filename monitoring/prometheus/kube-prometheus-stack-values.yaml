@@ -1,0 +1,92 @@
+# Install with:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm repo update
+#   helm install kube-prom-stack prometheus-community/kube-prometheus-stack \
+#       -n monitoring --create-namespace -f kube-prometheus-stack-values.yaml
+#
+# Sized deliberately small for a t3.small/t3.medium node group.
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    resources:
+      requests: { cpu: 200m, memory: 512Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    # Let Prometheus discover ServiceMonitors from any namespace, not just
+    # the release namespace - so our `automobile` namespace ServiceMonitor
+    # is picked up automatically.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+grafana:
+  adminPassword: "changeMe123!"   # override via --set or a Secret in real deployments
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 5Gi
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits:   { cpu: 300m, memory: 256Mi }
+  service:
+    type: ClusterIP   # exposed later via port-forward or its own ALB ingress
+  defaultDashboardsEnabled: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: automobile-dashboards
+          orgId: 1
+          folder: "Automobile App"
+          type: file
+          options:
+            path: /var/lib/grafana/dashboards/automobile-dashboards
+  dashboardsConfigMaps:
+    automobile-dashboards: "grafana-automobile-dashboard"
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits:   { cpu: 100m, memory: 128Mi }
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: default-notifications
+      group_by: ['alertname', 'namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 3h
+      routes:
+        - receiver: slack-critical
+          matchers:
+            - severity = "critical"
+    receivers:
+      - name: default-notifications
+        email_configs:
+          - to: "you@example.com"
+            from: "alertmanager@example.com"
+            smarthost: "smtp.gmail.com:587"
+            auth_username: "you@example.com"
+            auth_identity: "you@example.com"
+            auth_password: "REPLACE_WITH_APP_PASSWORD"
+            send_resolved: true
+      - name: slack-critical
+        slack_configs:
+          - api_url: "https://hooks.slack.com/services/REPLACE/WITH/WEBHOOK"
+            channel: "#alerts-prod"
+            send_resolved: true
+            title: "{{ .CommonAnnotations.summary }}"
+            text: "{{ .CommonAnnotations.description }}"
+
+# Kubelet/cAdvisor/node-exporter metrics (CPU, memory, pod count) are
+# enabled by default in this chart - nothing extra needed for those.
