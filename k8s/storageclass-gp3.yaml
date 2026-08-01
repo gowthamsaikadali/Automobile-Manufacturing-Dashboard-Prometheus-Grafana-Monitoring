@@ -1,0 +1,16 @@
+# The EBS CSI driver (installed by Terraform) gives the cluster the ABILITY
+# to provision EBS volumes, but doesn't create a "gp3" StorageClass on its
+# own - EKS's built-in default is still "gp2". Part B's Helm values all
+# request storageClassName: gp3, so this has to exist first.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+parameters:
+  type: gp3
+  encrypted: "true"
