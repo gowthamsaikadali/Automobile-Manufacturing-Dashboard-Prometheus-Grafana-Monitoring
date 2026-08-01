@@ -39,18 +39,12 @@ grafana:
   service:
     type: ClusterIP   # exposed later via port-forward or its own ALB ingress
   defaultDashboardsEnabled: true
-  dashboardProviders:
-    dashboardproviders.yaml:
-      apiVersion: 1
-      providers:
-        - name: automobile-dashboards
-          orgId: 1
-          folder: "Automobile App"
-          type: file
-          options:
-            path: /var/lib/grafana/dashboards/automobile-dashboards
-  dashboardsConfigMaps:
-    automobile-dashboards: "grafana-automobile-dashboard"
+  # Dashboard is imported manually through the Grafana UI (see Step 10 in
+  # PART-B-MONITORING.md) rather than auto-provisioned from a ConfigMap -
+  # simpler, and avoids Grafana looking for a ConfigMap that was never
+  # created (which is what "FailedMount ... configmap not found" means if
+  # you're seeing that error - remove any dashboardProviders/
+  # dashboardsConfigMaps block if you added one back in).
 
 alertmanager:
   alertmanagerSpec:
